@@ -19,17 +19,15 @@ void main() async {
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    final display = await screenRetriever.getPrimaryDisplay();
+    final screenSize = display.visibleSize ?? display.size;
+    await windowManager.setPosition(Offset(
+      screenSize.width - 450,
+      20,
+    ));
     await windowManager.show();
     await windowManager.focus();
   });
-
-  // Move to top-right corner
-  final display = await screenRetriever.getPrimaryDisplay();
-  final screenSize = display.visibleSize ?? display.size;
-  await windowManager.setPosition(Offset(
-    screenSize.width - 450,
-    20,
-  ));
 
   final statusService = StatusService(statusFilePath);
   await statusService.start();
