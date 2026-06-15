@@ -18,6 +18,7 @@ class StatusService extends ChangeNotifier {
   StatusData? get currentStatus => _currentStatus;
 
   Future<void> start() async {
+    if (_watcher != null || _pollTimer != null) return;
     await _loadStatus();
     _startWatching();
   }
@@ -31,19 +32,20 @@ class StatusService extends ChangeNotifier {
       final json = jsonDecode(content) as Map<String, dynamic>;
       _currentStatus = StatusData.fromJson(json);
       notifyListeners();
-    } catch (_) {
+    } catch (e) {
       // Keep last valid state on parse error
+      debugPrint('StatusService: parse error: $e');
     }
   }
 
-  void _debounceLoad() {
+  Future<void> _debounceLoad() async {
     final now = DateTime.now();
     if (_lastLoad != null &&
         now.difference(_lastLoad!).inMilliseconds < 100) {
       return;
     }
     _lastLoad = now;
-    _loadStatus();
+    await _loadStatus();
   }
 
   void _startWatching() {
@@ -53,12 +55,24 @@ class StatusService extends ChangeNotifier {
     }
     try {
       final dir = Directory(File(statusFilePath).parent.path);
-      _watcher = dir.watch().listen((event) {
-        if (event.path == statusFilePath) {
-          _debounceLoad();
-        }
-      });
-    } catch (_) {
+      _watcher = dir.watch().listen(
+        (event) {
+          if (event.path == statusFilePath) {
+            _debounceLoad();
+          }
+        },
+        onError: (e) {
+          debugPrint(
+              'StatusService: watcher error, falling back to polling: $e');
+          _usePolling = true;
+          _watcher?.cancel();
+          _watcher = null;
+          _startPolling();
+        },
+      );
+    } catch (e) {
+      debugPrint(
+          'StatusService: failed to start watcher, falling back to polling: $e');
       _usePolling = true;
       _startPolling();
     }
