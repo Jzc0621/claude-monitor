@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import '../models/status_data.dart';
 import '../services/status_service.dart';
@@ -120,40 +118,34 @@ class _TitleBar extends StatelessWidget {
             ? '已停止'
             : '空闲';
 
-    return GestureDetector(
-      onPanStart: (_) {},
-      onPanUpdate: (details) {
-        // Window drag will be handled by window_manager
-      },
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: const BoxDecoration(
-          color: Color(0xFF181825),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-        ),
-        child: Row(
-          children: [
-            Text('🧠 Claude Monitor',
-                style: TextStyle(
-                    color: const Color(0xFFCDD6F4).withOpacity(0.8),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-            const Spacer(),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-              ),
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF181825),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Row(
+        children: [
+          Text('🧠 Claude Monitor',
+              style: TextStyle(
+                  color: const Color(0xFFCDD6F4).withOpacity(0.8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+          const Spacer(),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 4),
-            Text('$statusText · $elapsed',
-                style: const TextStyle(
-                    color: Color(0xFF6C7086), fontSize: 10)),
-          ],
-        ),
+          ),
+          const SizedBox(width: 4),
+          Text('$statusText · $elapsed',
+              style: const TextStyle(
+                  color: Color(0xFF6C7086), fontSize: 10)),
+        ],
       ),
     );
   }
@@ -219,8 +211,6 @@ class _TodoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final completed =
         todos.where((t) => t.status == 'completed').length;
-    final inProgress =
-        todos.where((t) => t.status == 'in_progress').length;
     final progress = todos.isEmpty ? 0.0 : completed / todos.length;
 
     return _Card(
@@ -327,7 +317,7 @@ class _ThinkingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = thinking.length > 120
-        ? '${thinking.substring(0, max(0, 120))}...'
+        ? '${thinking.substring(0, 120)}...'
         : thinking;
 
     return _Card(
