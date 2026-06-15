@@ -46,14 +46,14 @@ class HomeScreen extends StatelessWidget {
               child: const Icon(Icons.psychology, size: 36, color: Colors.white),
             ),
             const SizedBox(height: 20),
-            const Text('Waiting for Claude...',
+            const Text('等待 Claude 连接...',
                 style: TextStyle(
                     color: Color(0xFFF0F6FC),
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5)),
             const SizedBox(height: 8),
-            const Text('Connects automatically when Claude Code starts',
+            const Text('启动 VS Code 中的 Claude Code 后自动更新',
                 style: TextStyle(color: Color(0xFF8B949E), fontSize: 12)),
           ],
         ),
@@ -172,7 +172,7 @@ class _TitleBar extends StatelessWidget {
           _PulseDot(color: accent, isRunning: isRunning),
           const SizedBox(width: 6),
           Text(
-            '${status == 'running' ? 'Running' : status == 'stopped' ? 'Stopped' : 'Idle'} · $elapsed',
+            '${status == 'running' ? '运行中' : status == 'stopped' ? '已停止' : '空闲'} · $elapsed',
             style: TextStyle(color: accent, fontSize: 11, fontWeight: FontWeight.w600),
           ),
         ],
@@ -285,12 +285,12 @@ class _CurrentActionCard extends StatelessWidget {
 
   String _label() {
     return switch (action.type) {
-      'reading' => 'Reading File',
-      'editing' => 'Editing Code',
-      'thinking' => 'Thinking',
-      'running' => 'Running Command',
-      'searching' => 'Searching',
-      _ => 'Active',
+      'reading' => '正在读取文件',
+      'editing' => '正在编辑代码',
+      'thinking' => '正在思考分析',
+      'running' => '正在执行命令',
+      'searching' => '正在搜索代码',
+      _ => '当前操作',
     };
   }
 
@@ -382,7 +382,7 @@ class _ErrorList extends StatelessWidget {
           const Row(children: [
             Icon(Icons.error_outline, color: Color(0xFFF85149), size: 16),
             SizedBox(width: 6),
-            Text('Errors', style: TextStyle(color: Color(0xFFF85149), fontSize: 13, fontWeight: FontWeight.w700)),
+            Text('错误', style: TextStyle(color: Color(0xFFF85149), fontSize: 13, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 6),
           ...errors.map((e) => Padding(
@@ -418,7 +418,7 @@ class _TodoPanel extends StatelessWidget {
           Row(children: [
             const Icon(Icons.checklist_rounded, color: Color(0xFF58A6FF), size: 16),
             const SizedBox(width: 6),
-            const Text('Tasks',
+            const Text('任务进度',
                 style: TextStyle(color: Color(0xFFF0F6FC), fontSize: 13, fontWeight: FontWeight.w700)),
             const Spacer(),
             Container(
@@ -499,7 +499,7 @@ class _ActivityTimeline extends StatelessWidget {
           const Row(children: [
             Icon(Icons.timeline_rounded, color: Color(0xFFF0883E), size: 16),
             SizedBox(width: 6),
-            Text('Recent Activity', style: TextStyle(color: Color(0xFFF0F6FC), fontSize: 13, fontWeight: FontWeight.w700)),
+            Text('最近活动', style: TextStyle(color: Color(0xFFF0F6FC), fontSize: 13, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 8),
           ...display.map((a) => _ActivityRow(item: a)),
@@ -572,7 +572,7 @@ class _ThinkingCard extends StatelessWidget {
           const Row(children: [
             Icon(Icons.lightbulb_outline, color: Color(0xFFBC8CFF), size: 16),
             SizedBox(width: 6),
-            Text('Thinking', style: TextStyle(color: Color(0xFFBC8CFF), fontSize: 13, fontWeight: FontWeight.w700)),
+            Text('思考分析', style: TextStyle(color: Color(0xFFBC8CFF), fontSize: 13, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 6),
           Text(display,
@@ -600,10 +600,10 @@ class _StatsBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatItem(icon: Icons.menu_book, label: 'Reads', count: stats.readCount, color: const Color(0xFF58A6FF)),
-          _StatItem(icon: Icons.edit, label: 'Edits', count: stats.editCount, color: const Color(0xFF3FB950)),
-          _StatItem(icon: Icons.terminal, label: 'Cmds', count: stats.commandCount, color: const Color(0xFFF0883E)),
-          _StatItem(icon: Icons.error, label: 'Errors', count: stats.errorCount,
+          _StatItem(icon: Icons.menu_book, label: '读取', count: stats.readCount, color: const Color(0xFF58A6FF)),
+          _StatItem(icon: Icons.edit, label: '编辑', count: stats.editCount, color: const Color(0xFF3FB950)),
+          _StatItem(icon: Icons.terminal, label: '命令', count: stats.commandCount, color: const Color(0xFFF0883E)),
+          _StatItem(icon: Icons.error, label: '错误', count: stats.errorCount,
               color: const Color(0xFFF85149), highlight: stats.errorCount > 0),
         ],
       ),
