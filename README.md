@@ -39,7 +39,7 @@ Claude Code (VS Code)  →  Hook Script (Node.js)  →  status.json  →  Flutte
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/claude-monitor.git
+git clone https://github.com/Jzc0621/claude-monitor.git
 cd claude-monitor
 
 # Install dependencies
@@ -147,7 +147,7 @@ claude_monitor/
 
 ## 📄 License
 
-MIT © 2026 [Your Name]
+MIT © 2026 zc
 
 ## 🙋 FAQ
 
