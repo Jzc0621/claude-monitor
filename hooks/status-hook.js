@@ -1,8 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
-const STATUS_FILE = 'D:\\Tools\\ClaudeMonitor\\status\\status.json';
-const STATUS_DIR = path.dirname(STATUS_FILE);
+const CONFIG_FILE = path.resolve(__dirname, '..', 'config.json');
+let STATUS_FILE = 'D:/Tools/ClaudeMonitor/status/status.json';
+let STATUS_DIR = path.dirname(STATUS_FILE);
+
+try {
+  const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  if (config.statusFilePath) {
+    STATUS_FILE = path.resolve(path.dirname(CONFIG_FILE), config.statusFilePath);
+    STATUS_DIR = path.dirname(STATUS_FILE);
+  }
+} catch (_) {
+  // fall back to default path above
+}
 
 function main() {
   let input = '';

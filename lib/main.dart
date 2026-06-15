@@ -1,10 +1,25 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 import 'services/status_service.dart';
 import 'screens/home_screen.dart';
 
-const statusFilePath = 'D:\\Tools\\ClaudeMonitor\\status\\status.json';
+String _resolveStatusPath() {
+  try {
+    final configFile = File('config.json');
+    if (configFile.existsSync()) {
+      final json = jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>;
+      if (json['statusFilePath'] != null) {
+        return File(json['statusFilePath'] as String).absolute.path;
+      }
+    }
+  } catch (_) {}
+  // Default fallback
+  return 'D:\\Tools\\ClaudeMonitor\\status\\status.json';
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +44,7 @@ void main() async {
     await windowManager.focus();
   });
 
-  final statusService = StatusService(statusFilePath);
+  final statusService = StatusService(_resolveStatusPath());
   await statusService.start();
 
   runApp(ClaudeMonitorApp(statusService: statusService));
