@@ -7,8 +7,10 @@ import 'package:window_manager/window_manager.dart';
 import 'services/status_service.dart';
 import 'screens/home_screen.dart';
 
-String _resolveStatusPath() {
-  // Look for config.json in: CWD, then exe directory, then parent dirs
+({String statusPath, int httpPort}) _loadConfig() {
+  const defaultPath = 'status/status.json';
+  const defaultPort = 9876;
+
   final candidates = <String>[
     'config.json',
     '${File(Platform.resolvedExecutable).parent.path}\\config.json',
@@ -19,20 +21,21 @@ String _resolveStatusPath() {
       final configFile = File(candidate);
       if (configFile.existsSync()) {
         final json = jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>;
-        if (json['statusFilePath'] != null) {
-          final resolved = File(json['statusFilePath'] as String);
-          if (resolved.isAbsolute) return resolved.path;
-          return '${configFile.parent.path}\\${json['statusFilePath']}';
-        }
+        final rawPath = (json['statusFilePath'] as String?) ?? defaultPath;
+        final resolved = File(rawPath);
+        final statusPath = resolved.isAbsolute
+            ? resolved.path
+            : '${configFile.parent.path}\\$rawPath';
+        final httpPort = (json['httpPort'] as int?) ?? defaultPort;
+        return (statusPath: statusPath, httpPort: httpPort);
       }
     } catch (_) {}
   }
 
-  // Fallback: user's app data directory
   final appData = Platform.environment['APPDATA'] ??
       Platform.environment['HOME'] ??
       '.';
-  return '$appData\\claude-monitor\\status.json';
+  return (statusPath: '$appData\\claude-monitor\\status.json', httpPort: defaultPort);
 }
 
 void main() async {
@@ -58,7 +61,8 @@ void main() async {
     await windowManager.focus();
   });
 
-  final statusService = StatusService(_resolveStatusPath());
+  final cfg = _loadConfig();
+  final statusService = StatusService(cfg.statusPath, port: cfg.httpPort);
   await statusService.start();
 
   runApp(ClaudeMonitorApp(statusService: statusService));

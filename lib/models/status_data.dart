@@ -65,13 +65,13 @@ class ActivityItem {
 }
 
 class Stats {
-  final int readCount;
-  final int editCount;
-  final int commandCount;
-  final int errorCount;
-  final int elapsedSeconds;
+  int readCount;
+  int editCount;
+  int commandCount;
+  int errorCount;
+  int elapsedSeconds;
 
-  const Stats({
+  Stats({
     this.readCount = 0,
     this.editCount = 0,
     this.commandCount = 0,
@@ -101,25 +101,28 @@ class Stats {
 class StatusData {
   final String sessionId;
   final String? startedAt;
-  final String status; // running, idle, stopped
-  final CurrentAction? currentAction;
-  final List<TodoItem> todos;
-  final List<ActivityItem> recentActivity;
-  final String? thinking;
-  final Stats stats;
-  final List<String> errors;
+  String status;
+  CurrentAction? currentAction;
+  List<TodoItem> todos;
+  List<ActivityItem> recentActivity;
+  String? thinking;
+  Stats stats;
+  List<String> errors;
 
   StatusData({
     required this.sessionId,
     this.startedAt,
     this.status = 'running',
     this.currentAction,
-    this.todos = const [],
-    this.recentActivity = const [],
+    List<TodoItem>? todos,
+    List<ActivityItem>? recentActivity,
     this.thinking,
-    this.stats = const Stats(),
-    this.errors = const [],
-  });
+    Stats? stats,
+    List<String>? errors,
+  })  : todos = todos ?? [],
+        recentActivity = recentActivity ?? [],
+        stats = stats ?? Stats(),
+        errors = errors ?? [];
 
   factory StatusData.fromJson(Map<String, dynamic> json) {
     return StatusData(
@@ -140,7 +143,7 @@ class StatusData {
       thinking: json['thinking'] as String?,
       stats: json['stats'] != null
           ? Stats.fromJson(json['stats'] as Map<String, dynamic>)
-          : const Stats(),
+          : Stats(),
       errors: (json['errors'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??

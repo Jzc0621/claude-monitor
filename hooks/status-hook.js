@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 const CONFIG_FILE = path.resolve(__dirname, '..', 'config.json');
-let STATUS_FILE = 'D:/Tools/ClaudeMonitor/status/status.json';
+let STATUS_FILE = path.resolve(__dirname, '..', 'status', 'status.json');
 let STATUS_DIR = path.dirname(STATUS_FILE);
 
 try {
@@ -11,9 +12,11 @@ try {
     STATUS_FILE = path.resolve(path.dirname(CONFIG_FILE), config.statusFilePath);
     STATUS_DIR = path.dirname(STATUS_FILE);
   }
-} catch (_) {
-  // fall back to default path above
-}
+} catch (_) {}
+
+const HTTP_PORT = 9876;
+
+// ─── Main ────────────────────────────────────────────
 
 function main() {
   let input = '';
@@ -22,16 +25,51 @@ function main() {
   process.stdin.on('end', () => {
     try {
       const event = JSON.parse(input);
-      processEvent(event);
+      sendEvent(event);
     } catch (e) {
       logError('parse error: ' + e.message);
     }
   });
 }
 
-function processEvent(event) {
-  let status = readStatus();
+// ─── HTTP (primary: instant push) ─────────────────────
 
+function sendEvent(event) {
+  const body = JSON.stringify(event);
+
+  const req = http.request({
+    hostname: '127.0.0.1',
+    port: HTTP_PORT,
+    path: '/event',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+    },
+    timeout: 2000,
+  }, (res) => {
+    // HTTP succeeded – all done
+    res.resume();
+  });
+
+  req.on('error', () => {
+    // HTTP failed – fall back to file
+    processEventFile(event);
+  });
+
+  req.on('timeout', () => {
+    req.destroy();
+    processEventFile(event);
+  });
+
+  req.write(body);
+  req.end();
+}
+
+// ─── File fallback ────────────────────────────────────
+
+function processEventFile(event) {
+  let status = readStatus();
   switch (event.event) {
     case 'PreToolUse':
       status = applyPreToolUse(status, event);
@@ -43,7 +81,6 @@ function processEvent(event) {
       status.status = 'stopped';
       break;
   }
-
   status.stats.elapsedSeconds = calcElapsed(status);
   writeStatus(status);
 }
@@ -52,47 +89,31 @@ function applyPreToolUse(status, event) {
   const tool = event.tool_name || '';
   status.status = 'running';
 
-  switch (tool) {
-    case 'Read':
-      status.currentAction = { type: 'reading', detail: event.tool_input?.file_path || '' };
-      break;
-    case 'Write':
-    case 'Edit':
-      status.currentAction = { type: 'editing', detail: event.tool_input?.file_path || '' };
-      break;
-    case 'Bash':
-      status.currentAction = { type: 'running', detail: (event.tool_input?.description || event.tool_input?.command || '').substring(0, 100) };
-      break;
-    case 'Grep':
-    case 'Glob':
-      status.currentAction = { type: 'searching', detail: event.tool_input?.pattern || '' };
-      break;
-    case 'TodoWrite':
-      if (event.tool_input?.todos) {
-        status.todos = event.tool_input.todos.map(t => ({
-          content: t.content || '',
-          status: t.status || 'pending'
-        }));
-      }
-      status.currentAction = { type: 'editing', detail: '更新任务列表' };
-      break;
-    case 'Agent':
-      status.currentAction = { type: 'thinking', detail: event.tool_input?.description || '启动子代理' };
-      break;
-    default:
-      status.currentAction = { type: 'idle', detail: tool };
-  }
+  const detail = event.tool_input?.file_path ||
+      event.tool_input?.description ||
+      event.tool_input?.pattern ||
+      event.tool_input?.command || '';
+  status.currentAction = {
+    type: toolType(tool),
+    detail: detail.length > 100 ? detail.substring(0, 100) + '...' : detail,
+  };
 
   const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-  const actItem = {
+  status.recentActivity.unshift({
     time: now,
-    action: toolToAction(tool),
+    action: toolAction(tool),
     file: event.tool_input?.file_path || undefined,
     detail: event.tool_input?.description || undefined,
-  };
-  status.recentActivity.unshift(actItem);
+  });
   if (status.recentActivity.length > 50) {
     status.recentActivity = status.recentActivity.slice(0, 50);
+  }
+
+  if (tool === 'TodoWrite' && event.tool_input?.todos) {
+    status.todos = event.tool_input.todos.map(t => ({
+      content: t.content || '',
+      status: t.status || 'pending',
+    }));
   }
 
   return status;
@@ -100,26 +121,18 @@ function applyPreToolUse(status, event) {
 
 function applyPostToolUse(status, event) {
   const tool = event.tool_name || '';
-
   switch (tool) {
-    case 'Read':
-      status.stats.readCount = (status.stats.readCount || 0) + 1;
-      break;
+    case 'Read': status.stats.readCount = (status.stats.readCount || 0) + 1; break;
     case 'Write':
-    case 'Edit':
-      status.stats.editCount = (status.stats.editCount || 0) + 1;
-      break;
-    case 'Bash':
-      status.stats.commandCount = (status.stats.commandCount || 0) + 1;
-      break;
+    case 'Edit': status.stats.editCount = (status.stats.editCount || 0) + 1; break;
+    case 'Bash': status.stats.commandCount = (status.stats.commandCount || 0) + 1; break;
   }
 
-  if (event.tool_output && typeof event.tool_output === 'string' && event.tool_output.toLowerCase().includes('error')) {
+  if (event.tool_output && typeof event.tool_output === 'string' &&
+      /error|fail/i.test(event.tool_output)) {
     status.stats.errorCount = (status.stats.errorCount || 0) + 1;
     status.errors.push(`${tool}: ${event.tool_output.substring(0, 100)}`);
-    if (status.errors.length > 20) {
-      status.errors = status.errors.slice(-20);
-    }
+    if (status.errors.length > 20) status.errors = status.errors.slice(-20);
   }
 
   if (event.thinking && typeof event.thinking === 'string') {
@@ -130,28 +143,36 @@ function applyPostToolUse(status, event) {
   return status;
 }
 
-function toolToAction(tool) {
+function toolType(tool) {
   switch (tool) {
-    case 'Read': return 'read';
-    case 'Write':
-    case 'Edit': return 'edit';
-    case 'Bash': return 'command';
-    case 'Grep':
-    case 'Glob': return 'search';
+    case 'Read': return 'reading';
+    case 'Write': case 'Edit': return 'editing';
+    case 'Bash': return 'running';
+    case 'Grep': case 'Glob': return 'searching';
+    case 'Agent': return 'thinking';
     default: return 'idle';
   }
 }
+
+function toolAction(tool) {
+  switch (tool) {
+    case 'Read': return 'read';
+    case 'Write': case 'Edit': return 'edit';
+    case 'Bash': return 'command';
+    case 'Grep': case 'Glob': return 'search';
+    default: return 'idle';
+  }
+}
+
+// ─── File helpers ─────────────────────────────────────
 
 function readStatus() {
   try {
     if (fs.existsSync(STATUS_FILE)) {
       const raw = fs.readFileSync(STATUS_FILE, 'utf8');
-      if (raw.trim()) {
-        return JSON.parse(raw);
-      }
+      if (raw.trim()) return JSON.parse(raw);
     }
   } catch (_) {}
-
   return {
     sessionId: 'sess_' + Date.now(),
     startedAt: new Date().toISOString(),
@@ -167,9 +188,7 @@ function readStatus() {
 
 function writeStatus(status) {
   try {
-    if (!fs.existsSync(STATUS_DIR)) {
-      fs.mkdirSync(STATUS_DIR, { recursive: true });
-    }
+    if (!fs.existsSync(STATUS_DIR)) fs.mkdirSync(STATUS_DIR, { recursive: true });
     const tmp = STATUS_FILE + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(status, null, 2), 'utf8');
     fs.renameSync(tmp, STATUS_FILE);
@@ -178,15 +197,13 @@ function writeStatus(status) {
 
 function calcElapsed(status) {
   if (!status.startedAt) return 0;
-  const start = new Date(status.startedAt).getTime();
-  const now = Date.now();
-  return Math.max(0, Math.floor((now - start) / 1000));
+  return Math.max(0, Math.floor((Date.now() - new Date(status.startedAt).getTime()) / 1000));
 }
 
 function logError(msg) {
   try {
-    const logFile = path.join(STATUS_DIR, 'error.log');
-    fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
+    fs.appendFileSync(path.join(STATUS_DIR, 'error.log'),
+      `[${new Date().toISOString()}] ${msg}\n`);
   } catch (_) {}
 }
 

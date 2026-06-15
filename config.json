@@ -1,3 +1,4 @@
 {
-  "statusFilePath": "status/status.json"
+  "statusFilePath": "status/status.json",
+  "httpPort": 9876
 }
