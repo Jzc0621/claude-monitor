@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import '../models/status_data.dart';
 import '../services/status_service.dart';
 
@@ -121,7 +122,10 @@ class _TitleBar extends StatelessWidget {
             ? const Color(0xFFF85149)
             : const Color(0xFFD29922);
 
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => windowManager.startDragging(),
+      child: Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
@@ -173,7 +177,7 @@ class _TitleBar extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
