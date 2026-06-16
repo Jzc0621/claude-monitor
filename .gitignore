@@ -1,12 +1,21 @@
+# Build
+src-tauri/target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Claude Code local settings (contains secrets)
+.claude/
+
+# Legacy Flutter artifacts
 build/
 .dart_tool/
 .packages
 .flutter-plugins
 .flutter-plugins-dependencies
-*.iml
 .superpowers/
 status.json
 status.json.tmp
 status/error.log
-.idea/
-.vscode/

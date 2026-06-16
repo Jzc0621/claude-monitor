@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/dev/crates/tauri-config-schema/schema.json",
+  "productName": "Context Gauge",
+  "version": "1.0.0",
+  "identifier": "com.context-gauge.app",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  }
+}

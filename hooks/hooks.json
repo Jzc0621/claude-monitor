@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"D:\\Tools\\ClaudeMonitor\\scripts\\gauge-hook.ps1\" -State idle"
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"D:\\Tools\\ClaudeMonitor\\scripts\\launch-gauge.ps1\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"D:\\Tools\\ClaudeMonitor\\scripts\\gauge-hook.ps1\" -State compacting"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -File \"D:\\Tools\\ClaudeMonitor\\scripts\\gauge-hook.ps1\" -State stopped"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -NoProfile -File \"D:\\Tools\\ClaudeMonitor\\scripts\\gauge-statusline.ps1\""
+  }
+}
