@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context Gauge — 在线演示</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#0a0a0a;color:#888;font:15px/1.7 "Noto Serif SC",Georgia,"SimSun",serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100vh;gap:32px;padding:40px 16px;
+  }
+  header{text-align:center}
+  header h1{font-size:36px;font-weight:700;color:#ddd;letter-spacing:4px}
+  header p{font-size:13px;color:#555;margin-top:4px}
+
+  .canvas-wrap{
+    position:relative;width:300px;height:300px;
+    border-radius:50%;
+    box-shadow:0 0 80px rgba(88,166,255,0.05);
+  }
+  canvas{display:block;width:100%;height:100%}
+
+  .pct-label{
+    text-align:center;font-size:18px;font-weight:600;transition:color .3s;letter-spacing:1px;
+  }
+
+  .state-tag{
+    display:inline-block;padding:3px 14px;border-radius:12px;font-size:13px;letter-spacing:1px;
+    border:1px solid;
+  }
+  .state-tag.normal{color:#58A6FF;border-color:rgba(88,166,255,0.3);background:rgba(88,166,255,0.06)}
+  .state-tag.critical{color:#F85149;border-color:rgba(248,81,73,0.3);background:rgba(248,81,73,0.06)}
+  .state-tag.compacting{color:#9944FF;border-color:rgba(153,68,255,0.3);background:rgba(153,68,255,0.06)}
+
+  /* Slider */
+  .controls{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .slider-group{display:flex;align-items:center;gap:12px}
+  .slider-group span{color:#666;font-size:13px;min-width:40px}
+  .slider-group input[type=range]{
+    -webkit-appearance:none;width:240px;height:4px;border-radius:2px;
+    background:linear-gradient(to right,#F85149,#F0883E,#58A6FF);outline:none;
+  }
+  .slider-group input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:#fff;cursor:pointer;box-shadow:0 0 8px rgba(0,0,0,0.5);
+  }
+
+  /* State buttons */
+  .state-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .state-btn{
+    padding:8px 20px;border:1px solid #333;border-radius:20px;
+    background:transparent;color:#777;font-size:14px;cursor:pointer;transition:all .25s;
+    font-family:inherit;letter-spacing:1px;
+  }
+  .state-btn:hover{color:#ccc;border-color:#555}
+  .state-btn.active.normal{color:#58A6FF;border-color:#58A6FF;box-shadow:0 0 12px rgba(88,166,255,0.15)}
+  .state-btn.active.critical{color:#F85149;border-color:#F85149;box-shadow:0 0 12px rgba(248,81,73,0.15)}
+  .state-btn.active.compacting{color:#9944FF;border-color:#9944FF;box-shadow:0 0 12px rgba(153,68,255,0.15)}
+
+  .auto-btn{
+    padding:6px 16px;border:1px dashed #333;border-radius:20px;
+    background:transparent;color:#555;font-size:12px;cursor:pointer;transition:all .25s;
+    font-family:inherit;
+  }
+  .auto-btn:hover{color:#aaa;border-color:#555}
+  .auto-btn.on{color:#3FB950;border-color:#3FB950;border-style:solid}
+
+  footer{font-size:12px;color:#333;margin-top:8px}
+  footer a{color:#444;text-decoration:none}
+  footer a:hover{color:#777}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Context Gauge</h1>
+  <p>Claude Code 上下文窗口指示器</p>
+</header>
+
+<div class="canvas-wrap">
+  <canvas id="gauge"></canvas>
+</div>
+
+<div class="pct-label" id="pctLabel">剩余 72%</div>
+<div id="stateTag"></div>
+
+<div class="controls">
+  <div class="slider-group">
+    <span>0%</span>
+    <input type="range" id="pctSlider" min="0" max="100" value="72" step="1">
+    <span>100%</span>
+  </div>
+
+  <div class="state-btns">
+    <button class="state-btn normal active" data-state="normal">正常</button>
+    <button class="state-btn critical" data-state="critical">紧张</button>
+    <button class="state-btn compacting" data-state="compacting">压缩中</button>
+  </div>
+
+  <button class="auto-btn" id="autoBtn">自动演示</button>
+</div>
+
+<footer>
+  <a href="https://github.com/Jzc0621/context-gauge">github.com/Jzc0621/context-gauge</a>
+</footer>
+
+<script>
+// ── Gauge Renderer (standalone demo version) ──────────────────────────
+(function(){
+  var canvas = document.getElementById("gauge");
+  var ctx = canvas.getContext("2d");
+
+  function hexRgb(h){
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+    return m ? [parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)] : [255,255,255];
+  }
+  function lerp(a,b,t){return a+(b-a)*t}
+  function lerpRgb(a,b,t){
+    return [Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))];
+  }
+  function rgba(r,g,b,a){return "rgba("+r+","+g+","+b+","+a+")"}
+
+  var C_SAFE=hexRgb("#58A6FF"), C_WARN=hexRgb("#F0883E"), C_DANGER=hexRgb("#F85149"), C_COMPACT=hexRgb("#9944FF");
+
+  function gaugeColor(rem){
+    if(rem>60)return lerpRgb(C_WARN,C_SAFE,(rem-60)/40);
+    if(rem>30)return lerpRgb(C_DANGER,C_WARN,(rem-30)/30);
+    return C_DANGER;
+  }
+
+  var targetRemaining=72, displayedRemaining=72, status="normal";
+  var time=0, lastT=null;
+
+  function resize(){
+    var dpr=window.devicePixelRatio||1, w=canvas.clientWidth, h=canvas.clientHeight;
+    canvas.width=w*dpr;canvas.height=h*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener("resize",resize);
+
+  function drawBgRing(cx,cy,R){
+    ctx.strokeStyle="rgba(255,255,255,0.03)";ctx.lineWidth=Math.max(R*0.10,1.5);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2,false);ctx.stroke();
+  }
+
+  function drawArc(cx,cy,R,startAngle,sweepAngle,colorRgb,alphaMul){
+    if(sweepAngle<0.005||alphaMul<0.005)return;
+    var endAngle=startAngle+sweepAngle;
+    ctx.strokeStyle=rgba(colorRgb[0],colorRgb[1],colorRgb[2],alphaMul*0.35);
+    ctx.lineWidth=Math.max(R*0.32,2.5);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,startAngle,endAngle,false);ctx.stroke();
+    ctx.strokeStyle=rgba(colorRgb[0],colorRgb[1],colorRgb[2],alphaMul*0.7);
+    ctx.lineWidth=Math.max(R*0.18,1.5);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,startAngle,endAngle,false);ctx.stroke();
+    ctx.strokeStyle=rgba(colorRgb[0],colorRgb[1],colorRgb[2],alphaMul);
+    ctx.lineWidth=Math.max(R*0.10,1);ctx.lineCap="round";
+    ctx.beginPath();ctx.arc(cx,cy,R,startAngle,endAngle,false);ctx.stroke();
+  }
+
+  function drawText(cx,cy,remaining,alpha){
+    if(alpha<0.01)return;
+    var pct=Math.round(remaining);
+    var c=status==="compacting"?C_COMPACT:gaugeColor(remaining);
+    ctx.fillStyle=rgba(c[0],c[1],c[2],alpha);
+    ctx.font="600 22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(pct+"%",cx,cy);
+  }
+
+  function frame(ts){
+    if(!lastT)lastT=ts;
+    var dt=(ts-lastT)/1000;if(dt<=0)dt=0.016;else if(dt>0.1)dt=0.1;lastT=ts;time+=dt;
+
+    var w=canvas.clientWidth, h=canvas.clientHeight;
+    var cx=w/2, cy=h/2, baseR=Math.min(w,h)*0.40;
+
+    displayedRemaining=lerp(displayedRemaining,targetRemaining,0.08);
+    if(Math.abs(displayedRemaining-targetRemaining)<0.3)displayedRemaining=targetRemaining;
+
+    var used=100-displayedRemaining;
+    var sweepAngle=(used/100)*Math.PI*2;
+    var startAngle=-Math.PI/2;
+
+    var colorRgb=status==="compacting"?C_COMPACT:gaugeColor(displayedRemaining);
+
+    var breathAlpha=1;
+    if(status==="critical"||displayedRemaining<30){
+      breathAlpha=0.6+0.4*Math.sin(time*Math.PI*0.5);
+    }
+    if(status==="compacting"){
+      breathAlpha=0.55+0.45*Math.sin(time*Math.PI*2/1.2);
+    }
+
+    var rotSpeed=status==="compacting"?2.0:0.15;
+    var rotation=time*rotSpeed;
+
+    ctx.clearRect(0,0,w,h);
+    drawBgRing(cx,cy,baseR);
+    drawArc(cx,cy,baseR,startAngle+rotation,sweepAngle,colorRgb,breathAlpha);
+    drawText(cx,cy,displayedRemaining,1);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ── Public interface ─────────────────────────────────────────────
+  window.__setGauge=function(rem,st){
+    targetRemaining=rem;
+    status=st;
+    document.getElementById("pctLabel").textContent="剩余 "+Math.round(rem)+"%";
+    document.getElementById("pctLabel").style.color=st==="compacting"?"#9944FF":
+      rem>60?"#58A6FF":rem>30?"#F0883E":"#F85149";
+  };
+})();
+
+// ── Controls ──────────────────────────────────────────────────────────
+var slider=document.getElementById("pctSlider");
+var stateBtns=document.querySelectorAll(".state-btn");
+var autoBtn=document.getElementById("autoBtn");
+var autoTimer=null, autoOn=false;
+
+slider.addEventListener("input",function(){
+  window.__setGauge(Number(this.value), getActiveState());
+});
+
+stateBtns.forEach(function(btn){
+  btn.addEventListener("click",function(){
+    stateBtns.forEach(function(b){b.classList.remove("active")});
+    btn.classList.add("active");
+    window.__setGauge(Number(slider.value), btn.dataset.state);
+  });
+});
+
+function getActiveState(){
+  var a=document.querySelector(".state-btn.active");
+  return a?a.dataset.state:"normal";
+}
+
+autoBtn.addEventListener("click",function(){
+  autoOn=!autoOn;
+  if(autoOn){
+    autoBtn.textContent="停止演示";
+    autoBtn.classList.add("on");
+    runAutoCycle();
+  }else{
+    autoBtn.textContent="自动演示";
+    autoBtn.classList.remove("on");
+    clearTimeout(autoTimer);
+  }
+});
+
+function runAutoCycle(){
+  if(!autoOn)return;
+  var scenes=[
+    {pct:85,state:"normal",dur:3000},
+    {pct:55,state:"normal",dur:2500},
+    {pct:28,state:"critical",dur:3000},
+    {pct:22,state:"critical",dur:2000},
+    {pct:18,state:"compacting",dur:2500},
+    {pct:72,state:"normal",dur:2000},
+  ];
+  var i=0;
+  function next(){
+    if(!autoOn)return;
+    var s=scenes[i%scenes.length];
+    slider.value=s.pct;
+    stateBtns.forEach(function(b){b.classList.remove("active")});
+    var targetBtn=document.querySelector('[data-state="'+s.state+'"]');
+    if(targetBtn)targetBtn.classList.add("active");
+    window.__setGauge(s.pct,s.state);
+    i++;
+    autoTimer=setTimeout(next,s.dur);
+  }
+  next();
+}
+</script>
+</body>
+</html>
